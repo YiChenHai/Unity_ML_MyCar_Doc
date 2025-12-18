@@ -1,0 +1,238 @@
+{
+  "main": {
+    "id": "6d1ba9656d8a6abd",
+    "type": "split",
+    "children": [
+      {
+        "id": "0dfdd8e1b3f80095",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "b8ef48bd58f38ef2",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Welcome.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Welcome"
+            }
+          },
+          {
+            "id": "eafee7e61d83a517",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Unity/Unity强化学习.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Unity强化学习"
+            }
+          },
+          {
+            "id": "254c19b580b8b73b",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Unity/Unity强化学习.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Unity强化学习"
+            }
+          }
+        ],
+        "currentTab": 2
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "22f4f02c82b53834",
+    "type": "split",
+    "children": [
+      {
+        "id": "41d355a27c5f8c0a",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c5ad2f608e54565d",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "文件列表"
+            }
+          },
+          {
+            "id": "f11a3f57d0b13c8a",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "搜索"
+            }
+          },
+          {
+            "id": "978feccdc10179d7",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "6a2b4a183a052e6b",
+    "type": "split",
+    "children": [
+      {
+        "id": "b89001b4c22ac004",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "f1fb7c6390639aa4",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Unity/Unity强化学习.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Unity强化学习 的反向链接列表"
+            }
+          },
+          {
+            "id": "20abf00c1e3fd44e",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "Unity/Unity强化学习.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Unity强化学习 的出链列表"
+            }
+          },
+          {
+            "id": "91071a1d3e66c931",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "标签"
+            }
+          },
+          {
+            "id": "0bc0d44bbacfb82d",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "添加笔记属性"
+            }
+          },
+          {
+            "id": "4a118f8e90438ffd",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Unity/Unity强化学习.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Unity强化学习 的大纲"
+            }
+          }
+        ],
+        "currentTab": 4
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:打开快速切换": false,
+      "graph:查看关系图谱": false,
+      "canvas:新建白板": false,
+      "daily-notes:打开/创建今天的日记": false,
+      "templates:插入模板": false,
+      "command-palette:打开命令面板": false,
+      "bases:创建新数据库": false
+    }
+  },
+  "active": "254c19b580b8b73b",
+  "lastOpenFiles": [
+    "README.md",
+    "Unity_ML_MyCar_Doc/README.md",
+    "Unity_ML_MyCar_Doc",
+    "Unity_ML_MyCar_Doc.git~",
+    "Unity/Unity强化学习使用.md",
+    "Unity/Unity强化学习.md",
+    "Unity/Unity.rar",
+    "Unity/res/Pasted image 20251120103713.png",
+    "Unity/res/Pasted image 20251120102505.png",
+    "Unity/res/Pasted image 20251120100646.png",
+    "Unity/res/Pasted image 20251120100556.png",
+    "Unity/res/Pasted image 20251120100433.png",
+    "Unity/res/Pasted image 20251119201046.png",
+    "Unity/res/Pasted image 20251119141722.png",
+    "Unity/res/Pasted image 20251119125518.png",
+    "Unity/res/Pasted image 20251118144819.png",
+    "Unity/res/Pasted image 20251118140235.png",
+    "Unity/res",
+    "Unity",
+    "Welcome.md"
+  ]
+}
