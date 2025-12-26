@@ -8,34 +8,6 @@
         "type": "tabs",
         "children": [
           {
-            "id": "b8ef48bd58f38ef2",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "Welcome.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "Welcome"
-            }
-          },
-          {
-            "id": "eafee7e61d83a517",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "Unity/Unity强化学习.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "Unity强化学习"
-            }
-          },
-          {
             "id": "254c19b580b8b73b",
             "type": "leaf",
             "state": {
@@ -49,8 +21,7 @@
               "title": "Unity强化学习"
             }
           }
-        ],
-        "currentTab": 2
+        ]
       }
     ],
     "direction": "vertical"
@@ -214,6 +185,8 @@
   },
   "active": "254c19b580b8b73b",
   "lastOpenFiles": [
+    "Unity/res/Pasted image 20251224101912.png",
+    "Unity/res/Pasted image 20251224101844.png",
     "README.md",
     "Unity_ML_MyCar_Doc/README.md",
     "Unity_ML_MyCar_Doc",
@@ -230,7 +203,6 @@
     "Unity/res/Pasted image 20251119141722.png",
     "Unity/res/Pasted image 20251119125518.png",
     "Unity/res/Pasted image 20251118144819.png",
-    "Unity/res/Pasted image 20251118140235.png",
     "Unity/res",
     "Unity",
     "Welcome.md"

@@ -415,6 +415,59 @@ ob
 	把决策树布置到实际车轮，进行测试，微调决策判断的阈值
 
 
+磁传感器、磁条本体
+
+磁传感器示数归一化
+
+车体本身
+
+决策智能体
+	- 观察空间
+	- 奖励函数
+	- 终止条件
+
+轮子执行
+- 轮子本体
+- 跟随实现
+
+--- 
+磁传感器.cs
+
+磁条.cs
+
+## 2.7 智能体训练.cs
+
+
+
+## 2.8 运动控制.cs
+### 2.8.1 输入输出
+- **输入**：车体速度指令 (vz前进, vx横向, omega自转)
+- **输出**：四个轮子的转向角和驱动扭矩
+
+### 2.8.2 三大模块
+**1. 运动学解算 (ComputeKinematics)**
+	- 刚体运动学公式：`v_wheel = v_body + omega × r`
+	- 计算每个轮子的速度向量 → 转向角 + 轮速
+	- **±90°角度折叠**：超出范围时反向速度
+
+**2. 速度归一化 (MapAndNormalize)**
+	- 全局速度限幅：保持相对速度比例
+	- 数据格式转换：弧度→角度
+
+**3. 双PID控制 (ApplyPIDControl)**
+	**转向角PID**：
+		- 输出：角速率 (度/秒)
+		- 执行：`MoveTowardsAngle` 平滑跟随
+	**轮速PID**（三段式）：
+		- 目标≈0：制动停车
+		- **死区内（±0.01）**：低增益维持扭矩（抵消摩擦）
+		- 死区外：完整PID追踪
+### 2.8.3 关键特性
+✅ 全向移动（前后+左右+原地旋转）  
+✅ 角度自动折叠（避免转向超限）  
+✅ 方向反转检测（重置积分器）  
+✅ 死区平滑维持（避免高频抖动）  
+✅ 椭圆轮视觉支持（手动旋转构建）
 
 
 
@@ -442,6 +495,9 @@ ML-Agents/Config/MyCarAgent_251217_UTF8.yaml
 
 mlagents-learn ML-Agents/Config/MyCarAgent_251217.yaml --run-id=MyCarAgent_251217 --force --results-dir "D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Assets/ML-Agents/Results"
 
+mlagents-learn ML-Agents/Config/MyCarAgent_251217_UTF8.yaml --run-id=MyCarAgent_duiqijiaqiang_251222  --force--results-dir "D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Assets/ML-Agents/Results" --time-scale=20 --num-envs=4 --env="D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Output/duiqijiaqiang_251222/XYF_Car_Test.exe"  ----no-graphics
+
+mlagents-learn ML-Agents/Config/MyCarAgent_251217_UTF8.yaml --run-id=MyCarAgent_cVzMo_251223  --force --results-dir "D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Assets/ML-Agents/Results" --time-scale=20 --num-envs=4 --env="D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Output/cVzMo_251223/XYF_Car_Test.exe"  --width=640 --height=480
 
 
 **恢复训练**
@@ -498,9 +554,131 @@ w_turning: 新增 0.8     (引导转向)
 |前后梯度|1.0|1.0|车头对准磁带|
 
 
+# 4 奖励函数更新日志
+### 4.1.1 V1 (12.19) - 基础设计
+**问题**：4M步训练效果差，无法转弯，弯道停车  
+**解决**：
+	- 终止条件AND改为OR（前中OR后中丢失即终止）
+	- 奖励简化：对齐+前进（2组件）
+	- 前进分层判断（平移/转向/静止）  
+**效果**：为  
+仍无法转弯，直线尚可
 
-# 4 Git
-## 4.1 建立仓库
+### 4.1.2 V2 (12.20) - 解决负奖励陷阱
+**问题**：累积奖励一直为负，AI不移动  
+**解决**：
+	- 静止/后退改为Episode终止（不给负奖励累积）
+	- 奖励改为纯正向[0,1]
+	- 添加启动保护期1秒  
+**效果**：开始移动，但仍不转弯
+
+### 4.1.3 V3 (12.20) - 增强转向能力
+**问题**：有转向意识但角速度太低，转到一半脱轨  
+**解决**：
+	- maxOmega: 120→180°/s
+	- 增加转向高奖励0.6-0.8（根据不对称度判断）  
+**效果**：转弯改善，但仍不够快
+
+### 4.1.4 V4 (12.21) - 中心传感器分离
+**问题**：中心强度参与奖励导致混淆  
+**解决**：
+	- 中心传感器只用于脱轨判断（<2.0终止）
+	- 对齐只看左右对称性
+	- 转向判断改为只看前排不对称（15%→合理）  
+**效果**：
+
+### 4.1.5 V5 (12.21) - 转向奖励与角速度挂钩
+**问题**：转向慢，角速度给的太小  
+**解决**：
+	- 转向奖励改为 `0.5 + omega×0.4` [0.5-0.9]
+	- 角速度越大奖励越高  
+**效果**：AI开始用更大角速度转弯，但速度仍然不够导致车头信号过低，仍无法过弯。
+
+### 4.1.6 V6 (12.22) - 极致转向激励
+**问题**：转到一半仍然中心传感器过低脱轨  
+**解决**：
+	- maxOmega: 180→240°/s (+33%物理能力)
+	- 转向阈值: 15%→12%（更早触发）
+**效果**：待验证（最新版本）
+
+
+--- 
+**观察空间（9维）**
+- **传感器**[0-5]：6个磁传感器强度，归一化到[0,1]
+- **运动状态**[6-8]：横向速度vx、前进速度vz、角速度omega（车身坐标系）
+
+**动作输出（3维连续）**
+AI输出[-1,1]的比例值，映射为：
+- vz：前进速度（最大1.0m/s）
+- vx：横向速度（最大0.5m/s）
+- omega：自转角速度（最大240°/s）
+
+**终止条件（约束层）**
+1. **脱轨**：前/后中心传感器<2.0 → 惩罚-1，结束Episode
+2. **后退**：vz < -0.05m/s → 惩罚-2，立即结束
+3. **静止**：启动1秒后，平移强度<0.05 → 惩罚-1，结束
+4. **超时**：20秒自动结束
+
+ **奖励函数（优化层）**
+- **组件1：对齐奖励（权重1.0）**
+```
+// 前左 vs 前右
+float frontSymmetry = Mathf.Clamp01(1f - Mathf.Abs(s[0] - s[2]) / maxField);  
+
+// 后左 vs 后右
+float rearSymmetry = Mathf.Clamp01(1f - Mathf.Abs(s[3] - s[5]) / maxField);   
+
+// 只有前后都对称时才给高分（取最小值）
+float r_alignment = Mathf.Min(frontSymmetry, rearSymmetry);
+```
+
+- **组件2：前进奖励（权重2.0）**
+	分层决策：
+	- **平移充足**（运动强度 ≥ 0.1 且 vz>0）  
+	     r_forward = vz/1.0（正常前进）
+	- **转向模式**（自转强度 ≥ 0.3 且 vz ≥ 0.03）
+	    - 检测**前排不对称** > 12% → 需要转向  
+	        r_forward = 0.6 + omega归一化×0.4（最高可达1.0，与前进等价）
+	    - 无需转向 → r_forward = 0.3（姿态调整）
+	- **运动不足** → r_forward = 0（会被静止终止）
+
+**最终奖励**
+- float reward = w_alignment * r_alignment + w_forward * r_forward;
+
+
+
+
+
+
+
+
+# 5 调试问题汇总
+## 5.1 转向轮视觉抖动
+**问题原因：**
+	[WheelCollider.GetWorldPose()](vscode-file://vscode-app/c:/Users/IFR_25/ProgramFiles_Software/Microsoft%20VS%20Code/resources/app/out/vs/code/electron-browser/workbench/workbench.html) 返回的旋转包含**物理滚动**（轮子像真实轮胎一样转动）。
+	旧代码用欧拉角覆盖 `e.z = 90°`，但**欧拉角有万向锁问题**：当轮子转向角度变化时，同一个旋转可能有多种欧拉角表示方式，导致 Z 轴值在帧间跳变（如 89° ↔ 91°）。
+**解决方案：**
+	不使用 GetWorldPose 的旋转，改为：
+	轮子旋转 = 车体旋转 + 转向角 + 固定90°
+	这样 Z 轴永远是 90°，不受物理滚动影响，完全稳定。
+
+**简单说：**
+- ❌ 旧方法：从物理旋转里改 Z 轴 → 欧拉角歧义导致抖动
+- ✅ 新方法：自己构建旋转，直接固定 Z=90° → 不抖动
+
+
+
+## 5.2 转向轮角度大幅度切换
+![[Pasted image 20251224101844.png]]
+![[Pasted image 20251224101912.png]]
+问题原因：
+	过大的Vx和自转速度，导致轮子触发正负九十度的切换逻辑。
+解决方法：
+	调整合适的智能体输出限制，规避问题。
+
+
+# 6 Git
+## 6.1 建立仓库
 1. **登录到 GitHub**：
     - 打开 [GitHub](https://github.com/) 网站并登录你的帐户。如果没有帐户，可以注册一个新帐户。
         
@@ -515,7 +693,7 @@ w_turning: 新增 0.8     (引导转向)
         
 3. **记下仓库的 URL**：
     - 创建完成后，GitHub 会显示一个新页面，提供了仓库的 URL（类似于 `https://github.com/YourUsername/MyUnityProject.git`）。稍后你需要使用这个 URL 来将本地仓库与 GitHub 仓库连接。
-## 4.2 本地git
+## 6.2 本地git
 - **确保本地安装 Git**：
     - 如果还没有安装 Git，可以从 [Git 官网](https://git-scm.com/) 下载并安装 Git。
     - 安装后，在命令行中输入 `git --version` 来检查是否安装成功。
@@ -536,7 +714,7 @@ cd /path/to/your/project
 git init
 ```
 
-## 4.3 建立联系
+## 6.3 建立联系
 - **连接本地仓库和远程 GitHub 仓库**：
     - 在你的本地项目中，添加 GitHub 仓库作为远程仓库。使用以下命令来设置远程仓库 URL：
 ```
@@ -581,3 +759,21 @@ git push --set-upstream origin main
 - **验证上传**：
 	- ssh / 账户密码
     - 上传完成后，访问 GitHub 仓库页面，确认文件已经成功上传。
+## 6.4 gitignore
+- **编辑 `.gitignore` 文件**：让 Git 忽略不想上传的文件或文件夹。
+在仓库的根目录下找到或创建一个 `.gitignore` 文件
+```
+Assets/Logs/**/*.log
+
+# 忽略 node_modules 目录 
+node_modules/ 
+
+# 忽略所有 .log 文件 
+*.log
+```
+- 如果文件已经被 Git 跟踪过，**先移除它们**，然后提交 `.gitignore` 修改。
+```
+git rm --cached **/*.log
+```
+
+git rm -r --cached Assets/TempFiles/
