@@ -419,7 +419,7 @@ ob
 
 磁传感器示数归一化
 
-车体本身
+车体本身z
 
 决策智能体
 	- 观察空间
@@ -497,7 +497,13 @@ mlagents-learn ML-Agents/Config/MyCarAgent_251217.yaml --run-id=MyCarAgent_25121
 
 mlagents-learn ML-Agents/Config/MyCarAgent_251217_UTF8.yaml --run-id=MyCarAgent_duiqijiaqiang_251222  --force--results-dir "D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Assets/ML-Agents/Results" --time-scale=20 --num-envs=4 --env="D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Output/duiqijiaqiang_251222/XYF_Car_Test.exe"  ----no-graphics
 
-mlagents-learn ML-Agents/Config/MyCarAgent_251217_UTF8.yaml --run-id=MyCarAgent_cVzMo_251223  --force --results-dir "D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Assets/ML-Agents/Results" --time-scale=20 --num-envs=4 --env="D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Output/cVzMo_251223/XYF_Car_Test.exe"  --width=640 --height=480
+mlagents-learn ML-Agents/Config/MagneticTrackingAgentCar_V1.0_Test_251231.yaml --run-id=MagneticTrackingAgentCar_V1.0_Test_251231  --force --results-dir "D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Assets/ML-Agents/Results" --time-scale=20 --num-envs=4 --env="D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Output/MagneticTrackingAgentCar_V1.0_Test_251231_1"  --width=640 --height=480
+
+
+- 260109
+
+mlagents-learn ML-Agents/Config/MagneticTrackingAgentCar_V1.0_Test_251231.yaml --run-id=MagneticTrackingAgentCar_V1.0_gwph_260109  --force --results-dir "D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Assets/ML-Agents/Results" --time-scale=20 --num-envs=4 --env="D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Output/MagneticTrackingAgentCar_V1.0_260109_pwgw"  --width=840 --height=580
+
 
 
 **恢复训练**
@@ -510,7 +516,6 @@ mlagents-learn ML-Agents/Config/MyCarAgent_251217.yaml --run-id=MyCarAgent_25121
 4. 保存到如 `D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Build/CarGame.exe`
 
 mlagents-learn ML-Agents/Config/MyCarAgent_251217_UTF8.yaml --run-id=MyCarAgent_251217_BL --resume --results-dir "D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Assets/ML-Agents/Results" --time-scale=20 --num-envs=4 --env="D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Output/BL_251217/XYF_Car_Test.exe"  --width=640 --height=480
-
 
 
 ## 3.4 问题与修改总结
@@ -651,9 +656,172 @@ float r_alignment = Mathf.Min(frontSymmetry, rearSymmetry);
 
 
 
+# 5 更新日志
+## 5.1 MagneticTrackingAgentCar_V1.0_251231
 
-# 5 调试问题汇总
-## 5.1 转向轮视觉抖动
+### 5.1.1 观察空间（Observations）
+观察空间在 `CollectObservations(VectorSensor sensor)` 里定义。该脚本每步向网络提供 **8 维连续观测**：
+#### 5.1.1.1 6 个磁传感器强度（第 1~6 维）
+循环 `for (i=0..5)`，每个传感器：
+- 取传感器位置 `sensors[i].position`
+- 调用 `tape.GetMagneticField(pos)` 得到磁场向量 `mag`
+- 使用 `mag.magnitude`（磁场强度标量）
+- **归一化到 [0,1]**：
+	- `Clamp01(mag.magnitude / maxField)`
+	- 并且用 `Mathf.Max(1e-9f, maxField)` 防止除 0
+
+意义：
+- 这 6 个值描述车相对磁条的位置/姿态状态。
+- 左右差异可反映“偏左/偏右”，前后差异可反映“车身角度没对齐”。
+
+注意点：
+- **观测用的是归一化值**（0~1）。
+- 但脚本后面“脱轨判断、奖励计算”用的是未归一化的 `mag.magnitude` 原值。
+
+#### 5.1.1.2 车辆横向速度（第 7 维）
+- `localVel = transform.InverseTransformDirection(rb.linearVelocity)`
+- 取 `localVel.x`（车身坐标系横向速度）
+- 归一化：`localVel.x / maxLateralSpeed`（并用 `Max(0.001f, maxLateralSpeed)` 防止除 0）
+
+意义：
+- 给策略“自身动作结果”的反馈：我当前横移多大，有助于控制稳定与减小振荡。
+
+#### 5.1.1.3 车辆绕 Y 轴角速度（第 8 维）
+- `angularVel = rb.angularVelocity.y`
+- 最大角速度（弧度）：`maxOmegaRad = maxOmegaDeg * Deg2Rad`
+- 归一化并截断：`Clamp(angularVel / maxOmegaRad, -1, 1)`
+
+意义：
+- 同样属于“自身动态反馈”，让策略知道转得有多快，避免过冲。
+
+
+### 5.1.2 终止条件（Termination）
+终止逻辑主要在 `OnActionReceived()` 中，有两类：
+#### 5.1.2.1 终止条件 1：脱轨（Derailment）
+- 读取 6 个传感器的 **原始强度** 到 `sensorValues[i] = mag.magnitude`
+- 取中心传感器：
+	- 前中：`frontCenter = sensorValues[1]`
+	- 后中：`rearCenter = sensorValues[4]`
+- 若 `frontCenter < derailThreshold || rearCenter < derailThreshold`：
+	- `AddReward(-5f)` 给一次性惩罚
+	- `EndEpisode()` 立刻终止回合
+	- `Debug.Log` 打印脱轨信息
+
+含义：
+- 用“前中/后中”的磁强度是否足够来判断是否还在轨道附近。
+- 只要前中或后中任意一个掉到阈值以下，就认为脱轨（比较严格，利于快速终止失败轨迹）。
+#### 5.1.2.2 终止条件 2：超时（Timeout）
+- `episodeTimer += Time.fixedDeltaTime`
+- 若 `episodeTimer >= maxEpisodeTime`：
+	- `EndEpisode()`
+	- `Debug.Log` 打印超时
+
+含义：
+- 防止回合无限长，保证训练数据分段。
+
+
+### 5.1.3 奖励函数结构及其每部分（Reward）
+奖励计算分两层：
+#### 5.1.3.1 主流程：每步奖励积分式累加
+在 `OnActionReceived()`：
+1. `reward = CalculateReward(sensorValues)`
+2. `AddReward(reward * Time.fixedDeltaTime)`
+
+这里乘 `Time.fixedDeltaTime` 的效果是：
+- 奖励更像“每秒奖励率”，回合越久且表现越好，总分越高；
+- 在不同物理帧率/决策频率下更一致（相对更稳定）。
+
+#### 5.1.3.2 `CalculateReward(float[] s)` 的结构：对齐 × 速度
+最终：
+- `return alignment * speedRatio;`
+两项都在 [0,1]，所以每步奖励也在 [0,1]（未乘 dt 前）。
+
+#### 5.1.3.3 对齐项 alignment：前后左右对称性
+用左右成对传感器差来刻画“居中/姿态对齐”：
+- 前排对称（前左 vs 前右）
+	- `frontSymmetry = Clamp01(1 - |s[0] - s[2]| / maxField)`
+- 后排对称（后左 vs 后右）
+	- `rearSymmetry = Clamp01(1 - |s[3] - s[5]| / maxField)`
+- 整车对齐
+	- `alignment = Min(frontSymmetry, rearSymmetry)`
+
+解释：
+- 如果车居中且姿态对齐，那么左右读数会接近，差值小 → 对称性接近 1。
+- 用 `Min()` 是关键：**前排或后排只要有一排没对齐，就拉低整体得分**，逼策略同时兼顾车头和车尾的对齐（减少“车头对齐但车尾甩出去”的情况）。
+
+潜台词：
+- 这是一种“形状奖励”（shape reward），帮助训练更快收敛。
+
+#### 5.1.3.4 速度项 speedRatio：前进速度门槛 + 线性衰减
+先算真实前进速度（沿车头方向）：
+- `forwardSpeed = Dot(rb.linearVelocity, transform.forward)`
+
+再分段给奖励（该脚本当前为 **80% 阈值、10cm/s 下限**）：
+- `speedThreshold = constantForwardSpeed * 0.8`
+
+分段：
+- 若 `forwardSpeed >= speedThreshold`：`speedRatio = 1`
+- 若 `0.10 <= forwardSpeed < speedThreshold`：`speedRatio = forwardSpeed / speedThreshold`
+- 若 `< 0.10`：`speedRatio = 0`
+
+解释：
+-  只要前进速度达到目标速度的 80%，就不扣速度分（对转弯/调整时速度下降有一定宽容）。
+-  太慢（<10cm/s）则完全不给分，避免学会“慢慢挪/原地抖动刷对齐分”。
+
+### 5.1.4 其他特殊处理（训练稳定性/工程细节）
+#### 5.1.4.1 动作空间的“固定前进 + 只控横移与自转”
+在 `OnActionReceived()`：
+- `vz = constantForwardSpeed` 固定
+- 策略输出只影响 `vx` 与 `omega`
+
+意义：
+- 降低学习难度：少一维动作就少一个不稳定因素；
+- 训练更聚焦于“循迹横向修正 + 转向修正”。
+
+#### 5.1.4.2 动作幅度限制（安全/物理稳定）
+- `a_vx`、`a_w` 强制 clamp 到 [-1,1]
+- 再映射到 `maxLateralSpeed`、`maxOmegaDeg`（并转弧度）
+
+意义：
+- 防止网络输出异常值导致车辆物理爆炸；
+- `maxOmegaDeg` 特别用于防止转得过快导致翻车/轮子异常。
+
+#### 5.1.4.3 回合开始的状态重置（Reset）
+`OnEpisodeBegin()` 做了：
+- 清空线速度/角速度
+- 传送到固定起点姿态
+- 下发一个“初始固定前进”控制
+- 计时器归零
+
+意义：
+- 保证每回合初始条件一致，训练更可控；
+- 也意味着泛化较弱（永远从同一个起点学）。
+
+#### 5.1.4.4 空[[]]引用的容错处理
+- 观测阶段：如果 `sensors[i]==null` 或 `tape==null`，观测添加 0
+- 控制阶段：`myCarMotion != null` 才下发控制
+- `Initialize()`：如果 `rb==null` 自动 `GetComponent<Rigidbody>()`
+
+意义：
+- 防止场景没拖引用直接 NullReference 崩溃；
+- 但如果 `tape` 没设置，你会得到全 0 观测，训练会“学不动”。
+
+
+### 5.1.5 模型训练效果
+可以跟踪磁条，但轮子姿态很不平滑。
+
+
+
+
+## 5.2 V1.1
+目标解决问题：动作平滑
+
+
+
+
+
+# 6 调试问题汇总
+## 6.1 转向轮视觉抖动
 **问题原因：**
 	[WheelCollider.GetWorldPose()](vscode-file://vscode-app/c:/Users/IFR_25/ProgramFiles_Software/Microsoft%20VS%20Code/resources/app/out/vs/code/electron-browser/workbench/workbench.html) 返回的旋转包含**物理滚动**（轮子像真实轮胎一样转动）。
 	旧代码用欧拉角覆盖 `e.z = 90°`，但**欧拉角有万向锁问题**：当轮子转向角度变化时，同一个旋转可能有多种欧拉角表示方式，导致 Z 轴值在帧间跳变（如 89° ↔ 91°）。
@@ -668,7 +836,7 @@ float r_alignment = Mathf.Min(frontSymmetry, rearSymmetry);
 
 
 
-## 5.2 转向轮角度大幅度切换
+## 6.2 转向轮角度大幅度切换
 ![[Pasted image 20251224101844.png]]
 ![[Pasted image 20251224101912.png]]
 问题原因：
@@ -677,8 +845,43 @@ float r_alignment = Mathf.Min(frontSymmetry, rearSymmetry);
 	调整合适的智能体输出限制，规避问题。
 
 
-# 6 Git
-## 6.1 建立仓库
+
+## 6.3 12.30奖励问题汇总
+- 是否要区分直线和转弯模式
+
+- 对齐磁条
+	- 前后的左右传感器差值足够小
+	- 中心传感器离线判断
+
+- 运动平滑
+	- 直线仅Vz，车轮不乱动
+	- 转弯过程平滑，一气呵成
+
+
+你是无人车跟踪磁条的专家，我目前在训练我的无人车跟踪磁条，无人车是四轮独立转向的结构，每个轮是一个转向电机和一个驱动电机组成，四轮可以独立各自转向，给定车体的Vz、Vx和自转速度，依据我现有脚本中的运动学解析公式，可以得到各个轮子的转向角度和转速。我预期希望我的智能体可以满足以下两大点：1、对齐磁条：前后的左右传感器差值足够小；中心传感器用于离线判断。2、运动过程平滑：直线仅Vz，定死了前进速度为Vz=0.2m/s，车轮不乱摆动；转弯过程平滑，一气呵成。目前我在我的脚本训练出的智能体，可以跟踪上磁条，可以直行可以拐弯，但是直行时运动不平滑，无法实现仅vz有速度的目标，车轮是在摆动中前进的，此前我为了实现运动平滑，加了很多的判断条件，如区分直线和拐弯，还有输出的死区速度等，但效果都不好。请你结合我的脚本，梳理一条可行的训练脚本出来，以实现我的两个目标为终极目标，其他条件都可以修改，请编写。
+
+
+你现在是一位强化学习的专家，我现在在unity中使用ML库进行无人车追踪磁条的大模型训练，无人车的底盘是一个四轮独立转向平台，每个轮子由一个转向电机和驱动电机组成，分别控制转角和轮速，其中转角电机存在物理限位，以车头为0角度，只能正负90度转动。车身上存在六个磁传感器，分别分布于车头的左中右，和车尾的左中右，是一个前后左右都对称的排布。请注意，磁传感器只能感受到磁场强度，只能感受标量。现在，我规定车初始状态是位于磁条上，车身方向与磁条方向平行，且车身相对磁条左右居中。智能体要做的是，基础观察空间为六个磁传感器的磁场强度，可以自行增加，输出横向速度和自转速度，前进速度我规定为一个常量。这三个量会作为中间量进入我的底盘运动学解析算法，给出各个轮子的转角和转速。我要求智能体可以严格对正磁条前进，磁条的路径会存在直角弯和锐角弯，需要你的奖励函数考虑到这个问题，此外，我要求轮子的转角变化是一个平滑的过程，不要大幅度跳变，但又要保证可以通过前面提到的直角弯和锐角弯道。请实现。
+
+观察空间：
+	6个传感器的磁场强度、智能体输出的横向速度和自转速度、车身实际的前进速度、横向速度、自转速度，共九维，可根据你的需要增加。
+策略空间：
+	横向速度和自转速度，固定两维。
+停止条件：
+	1、脱轨停止，前后中心磁传感器低于最大磁场强度的30%的时间超过0.5s时判断为脱轨，立刻终止。
+	2、超时停止：40秒后停止。
+奖励函数：
+	1、对齐奖励：
+		此处定义一个状态：对齐状态，对于前后的两对左右传感器的差值小于最大磁场强度的10%，并且此时两个中心传感器的值大于最大磁场强度的60%时，判定进入对齐状态，此时给与全额奖励，此时如果智能体的横向输出和自转输出都接近0，则给与额外适当的奖励，这个由你来把握。
+		如果不在对齐状态内，按比例给与奖励，不给予额外奖励。
+	2、前进速度比例系数：根据实际的前进速度给与，大于等于预设速度的60%时设置为1，在20%~60%之间时比例减少，小于20%时取消对齐奖励，直接给与-1的惩罚。
+	3、中心强度比例系数：与奖励乘算，并额外乘算一个合理的放大系数
+其他要求：
+	我希望在对齐的情况下，如已经跟随直线行驶，轮子不要有转角的变化，可以让车平稳的跟随直线直到出现不对齐的情况，再进行调整，这个不对齐可以是在直线跟随时有一点小偏差导致的，或者是遇到弯道情况。至于这个不出现转角如何实现，你可以想办法让智能体在该状态下不输出，或者你增加一些条件去直接屏蔽，或者有什么其他合适的办法，由你实现。
+
+
+# 7 Git
+## 7.1 建立仓库
 1. **登录到 GitHub**：
     - 打开 [GitHub](https://github.com/) 网站并登录你的帐户。如果没有帐户，可以注册一个新帐户。
         
@@ -693,7 +896,7 @@ float r_alignment = Mathf.Min(frontSymmetry, rearSymmetry);
         
 3. **记下仓库的 URL**：
     - 创建完成后，GitHub 会显示一个新页面，提供了仓库的 URL（类似于 `https://github.com/YourUsername/MyUnityProject.git`）。稍后你需要使用这个 URL 来将本地仓库与 GitHub 仓库连接。
-## 6.2 本地git
+## 7.2 本地git
 - **确保本地安装 Git**：
     - 如果还没有安装 Git，可以从 [Git 官网](https://git-scm.com/) 下载并安装 Git。
     - 安装后，在命令行中输入 `git --version` 来检查是否安装成功。
@@ -714,7 +917,7 @@ cd /path/to/your/project
 git init
 ```
 
-## 6.3 建立联系
+## 7.3 建立联系
 - **连接本地仓库和远程 GitHub 仓库**：
     - 在你的本地项目中，添加 GitHub 仓库作为远程仓库。使用以下命令来设置远程仓库 URL：
 ```
@@ -755,11 +958,18 @@ git push --set-upstream origin main
 ```
 这个命令会将本地的 `master`（或 `main`）分支推送到远程仓库，并将其设置为上游分支（即以后的 `git push` 可以直接使用，无需每次指定远程仓库和分支）。
 
-
 - **验证上传**：
 	- ssh / 账户密码
     - 上传完成后，访问 GitHub 仓库页面，确认文件已经成功上传。
-## 6.4 gitignore
+
+
+- **新分支推github:**
+	git checkout -b xxx
+	git push -u origin MagneticTrackingAgentCar_V1.0_GuaiWanPingWen_260109
+
+
+
+## 7.4 gitignore
 - **编辑 `.gitignore` 文件**：让 Git 忽略不想上传的文件或文件夹。
 在仓库的根目录下找到或创建一个 `.gitignore` 文件
 ```
@@ -777,3 +987,48 @@ git rm --cached **/*.log
 ```
 
 git rm -r --cached Assets/TempFiles/
+
+
+如果你不希望跟踪这些大的 `.log` 文件，并且已经确保 `.gitignore` 正确配置了这些文件，那么接下来你需要做的是从 Git 历史记录中删除这些已经被提交的 `.log` 文件，防止它们再被推送到远程仓库。
+
+以下是步骤：
+
+### 7.4.1 确保 `.gitignore` 配置正确
+
+确保你的 `.gitignore` 文件中包含了 `.log` 文件的规则。一般情况下，应该加上这一行：
+
+`*.log`
+
+如果已经配置了，确保 `.log` 文件没有被 Git 追踪。
+
+### 7.4.2 删除 Git 历史中的 `.log` 文件
+
+即使你在 `.gitignore` 中添加了 `.log` 文件规则，之前已经提交到 Git 的 `.log` 文件仍然会存在于 Git 历史记录中。因此，你需要删除它们。
+
+**方法一：使用 `git filter-branch`**  
+你可以使用 `git filter-branch` 来从 Git 历史中删除 `.log` 文件：
+
+`git filter-branch --force --index-filter "git rm --cached --ignore-unmatch *.log" --prune-empty --tag-name-filter cat -- --all`
+
+这条命令会在 Git 历史中删除所有的 `.log` 文件。
+### 7.4.3 强制推送到远程仓库
+
+删除历史中的 `.log` 文件后，你需要强制推送更改到远程仓库，因为你修改了 Git 历史：
+
+`git push --force`
+
+**注意**：强制推送会覆盖远程仓库中的历史，因此如果其他人也在使用该仓库，确保他们已经了解这个变更，并同步他们的本地仓库。
+
+### 7.4.4 确保 `.log` 文件不再被提交
+如果 `.gitignore` 配置正确，Git 将不会再追踪 `.log` 文件。
+你可以通过以下命令检查 `.log` 文件是否被 Git 跟踪：
+
+`git status`
+
+如果 `.log` 文件不再出现在已跟踪文件列表中，那么问题就解决了。
+### 7.4.5 总结
+- 确保 `.gitignore` 中添加了 `*.log` 规则。
+- 使用 `git filter-branch` 或 `BFG Repo-Cleaner` 删除历史中的 `.log` 文件。
+- 强制推送到远程仓库。
+- 检查 `.gitignore` 是否生效，确保 `.log` 文件不再被跟踪。
+
