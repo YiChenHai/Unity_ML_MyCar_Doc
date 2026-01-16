@@ -505,6 +505,21 @@ mlagents-learn ML-Agents/Config/MagneticTrackingAgentCar_V1.0_Test_251231.yaml -
 mlagents-learn ML-Agents/Config/MagneticTrackingAgentCar_V1.0_Test_251231.yaml --run-id=MagneticTrackingAgentCar_V1.0_gwph_260109  --force --results-dir "D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Assets/ML-Agents/Results" --time-scale=20 --num-envs=4 --env="D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Output/MagneticTrackingAgentCar_V1.0_260109_pwgw"  --width=840 --height=580
 
 
+mlagents-learn ML-Agents/Config/MagneticTrackingAgentCar_V1.0_Test_251231.yaml --run-id=MagneticTrackingAgentCar_V1.0_gwph_260109  --resume --results-dir "D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Assets/ML-Agents/Results" --time-scale=20 --num-envs=4 --env="D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Output/MagneticTrackingAgentCar_V1.0_260109_pwgwNopic"  --width=840 --height=580
+
+
+- 260116
+mlagents-learn ML-Agents/Config/MagneticTrackingAgentCar_V1.0_Test_260110.yaml --run-id=MagneticTrackingAgentCar_V1.1_260111 --resume --results-dir "D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Assets/ML-Agents/Results" --time-scale=20 --num-envs=4 --env="D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Output/MagneticTrackingAgentCar_V1.0_260116"  --width=840 --height=580
+
+
+
+-0.5 0 3 -90 
+-2 0 4   0 
+-2 0 4 -180
+5 0 0 -180
+3 0 -2 -90
+
+0 -1 -180
 
 **恢复训练**
 mlagents-learn ML-Agents/Config/MyCarAgent_251217.yaml --run-id=MyCarAgent_251217_BL --force --results-dir "D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Assets/ML-Agents/Results" --time-scale=20
@@ -516,6 +531,10 @@ mlagents-learn ML-Agents/Config/MyCarAgent_251217.yaml --run-id=MyCarAgent_25121
 4. 保存到如 `D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Build/CarGame.exe`
 
 mlagents-learn ML-Agents/Config/MyCarAgent_251217_UTF8.yaml --run-id=MyCarAgent_251217_BL --resume --results-dir "D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Assets/ML-Agents/Results" --time-scale=20 --num-envs=4 --env="D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Output/BL_251217/XYF_Car_Test.exe"  --width=640 --height=480
+
+
+
+
 
 
 ## 3.4 问题与修改总结
@@ -863,6 +882,9 @@ float r_alignment = Mathf.Min(frontSymmetry, rearSymmetry);
 
 你现在是一位强化学习的专家，我现在在unity中使用ML库进行无人车追踪磁条的大模型训练，无人车的底盘是一个四轮独立转向平台，每个轮子由一个转向电机和驱动电机组成，分别控制转角和轮速，其中转角电机存在物理限位，以车头为0角度，只能正负90度转动。车身上存在六个磁传感器，分别分布于车头的左中右，和车尾的左中右，是一个前后左右都对称的排布。请注意，磁传感器只能感受到磁场强度，只能感受标量。现在，我规定车初始状态是位于磁条上，车身方向与磁条方向平行，且车身相对磁条左右居中。智能体要做的是，基础观察空间为六个磁传感器的磁场强度，可以自行增加，输出横向速度和自转速度，前进速度我规定为一个常量。这三个量会作为中间量进入我的底盘运动学解析算法，给出各个轮子的转角和转速。我要求智能体可以严格对正磁条前进，磁条的路径会存在直角弯和锐角弯，需要你的奖励函数考虑到这个问题，此外，我要求轮子的转角变化是一个平滑的过程，不要大幅度跳变，但又要保证可以通过前面提到的直角弯和锐角弯道。请实现。
 
+python "D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Assets/Scripts/generate_rules.py" --data "D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Assets/ML-Agents/Results_onnx_Release/episode_data_20260114_163817 - 50w.csv" --out "D:/XiaoYiFei/Project/Unity/XYF_Car_Test/Assets/Scripts/DecisionTreeRules.cs"
+
+
 观察空间：
 	6个传感器的磁场强度、智能体输出的横向速度和自转速度、车身实际的前进速度、横向速度、自转速度，共九维，可根据你的需要增加。
 策略空间：
@@ -1032,3 +1054,4 @@ git rm -r --cached Assets/TempFiles/
 - 强制推送到远程仓库。
 - 检查 `.gitignore` 是否生效，确保 `.log` 文件不再被跟踪。
 
+git rm --cached **/*.csv
